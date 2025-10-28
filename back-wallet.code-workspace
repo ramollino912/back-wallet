@@ -1,0 +1,13 @@
+{
+	"folders": [
+		{
+			"name": "back-wallet",
+			"path": "."
+		},
+		{
+			"name": "db-projecto",
+			"path": "../db-projecto"
+		}
+	],
+	"settings": {}
+}
