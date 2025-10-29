@@ -3,13 +3,13 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
-// Configuración para Vercel usando verceldb
+// Configuración para Vercel usando wallet
 const sequelize = new Sequelize(
-  process.env.DB_NAME || 'verceldb',
+  process.env.DB_NAME || 'wallet',
   process.env.DB_USER || 'default',
   process.env.DB_PASSWORD || '1U0hcQmxMuTz',
   {
-    host: process.env.DB_HOST || 'ep-white-dust-a4ao0h56-pooler.us-east-1.aws.neon.tech',
+    host: process.env.DB_HOST || 'ep-white-dust-a4ao0h56.us-east-1.aws.neon.tech',
     port: process.env.DB_PORT || 5432,
     dialect: 'postgres',
     dialectOptions: {
