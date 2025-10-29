@@ -45,8 +45,7 @@ export const ObtenerTarjetas = async (req, res) => {
     const usuario_id = req.user.id;
 
     const tarjetas = await TarjetaTransporte.findAll({
-      where: { usuario_id, activo: true },
-      order: [['createdAt', 'DESC']]
+      where: { usuario_id, activo: true }
     });
 
     res.json(tarjetas);
@@ -62,8 +61,7 @@ export const ObtenerTarjetasDesactivadas = async (req, res) => {
     const usuario_id = req.user.id;
 
     const tarjetas = await TarjetaTransporte.findAll({
-      where: { usuario_id, activo: false },
-      order: [['updatedAt', 'DESC']]
+      where: { usuario_id, activo: false }
     });
 
     res.json(tarjetas);
@@ -76,9 +74,12 @@ export const ObtenerTarjetasDesactivadas = async (req, res) => {
 // Recargar tarjeta
 export const RecargarTarjeta = async (req, res) => {
   try {
-    const { tarjeta_id } = req.params;
-    const { monto } = req.body;
+    const { tarjeta_id, monto } = req.body;
     const usuario_id = req.user.id;
+
+    if (!tarjeta_id) {
+      return res.status(400).json({ error: 'ID de tarjeta es requerido' });
+    }
 
     if (!monto || monto <= 0) {
       return res.status(400).json({ error: 'Monto válido es requerido' });
@@ -94,7 +95,7 @@ export const RecargarTarjeta = async (req, res) => {
 
     const usuario = await Usuario.findByPk(usuario_id);
 
-    if (usuario.saldo < monto) {
+    if (parseFloat(usuario.saldo) < parseFloat(monto)) {
       return res.status(400).json({ error: 'Saldo insuficiente' });
     }
 

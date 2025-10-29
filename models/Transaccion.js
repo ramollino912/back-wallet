@@ -50,7 +50,7 @@ const Transaccion = sequelize.define('Transaccion', {
   }
 }, {
   tableName: 'transacciones',
-  timestamps: true
+  timestamps: false
 });
 
 // Relaciones

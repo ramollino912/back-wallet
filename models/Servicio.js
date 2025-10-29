@@ -49,13 +49,28 @@ const Servicio = sequelize.define('Servicio', {
   activo: {
     type: DataTypes.BOOLEAN,
     defaultValue: true
+  },
+  usuarioid: {
+    type: DataTypes.INTEGER,
+    allowNull: false,
+    field: 'usuarioid',
+    references: {
+      model: 'usuarios',
+      key: 'id'
+    }
   }
 }, {
   tableName: 'servicios',
-  timestamps: true
+  timestamps: false,
+  underscored: false
 });
 
-// Relaciones
-Servicio.belongsTo(Usuario, { foreignKey: 'usuario_id' });
+// No need for explicit association here since usuario_id is defined in the model
+// Servicio.belongsTo(Usuario, { 
+//   foreignKey: {
+//     name: 'usuario_id',
+//     allowNull: false
+//   }
+// });
 
 export default Servicio; 

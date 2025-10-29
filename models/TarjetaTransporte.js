@@ -24,13 +24,20 @@ const TarjetaTransporte = sequelize.define('TarjetaTransporte', {
   activo: {
     type: DataTypes.BOOLEAN,
     defaultValue: true
+  },
+  usuario_id: {
+    type: DataTypes.INTEGER,
+    allowNull: false,
+    references: {
+      model: 'usuarios',
+      key: 'id'
+    }
   }
 }, {
   tableName: 'tarjetas_transporte',
-  timestamps: true
+  timestamps: false,
+  underscored: true
 });
 
-// Relaciones
-TarjetaTransporte.belongsTo(Usuario, { foreignKey: 'usuario_id' });
-
+// No usar belongsTo ya que el campo esta definido explicitamente
 export default TarjetaTransporte; 

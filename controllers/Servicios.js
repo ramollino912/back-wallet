@@ -23,39 +23,56 @@ export const ObtenerProveedores = async (req, res) => {
 export const CrearServicio = async (req, res) => {
   try {
     const { nombre, tipo, proveedor, numero_servicio, monto_mensual, fecha_vencimiento } = req.body;
-    const usuario_id = req.user.id;
+    const usuarioid = req.user.id;
 
     if (!nombre || !tipo || !proveedor || !numero_servicio || !monto_mensual || !fecha_vencimiento) {
       return res.status(400).json({ error: 'Todos los campos son requeridos' });
     }
 
-    const servicio = await Servicio.create({
+    // Verificar si es servicio celular y ya tiene uno
+    if (tipo === 'celular') {
+      const servicioExistente = await Servicio.findOne({
+        where: { usuarioid, tipo: 'celular', activo: true }
+      });
+
+      if (servicioExistente) {
+        return res.status(400).json({ 
+          error: 'Ya tienes un servicio celular activo. Solo se permite uno por usuario.' 
+        });
+      }
+    }
+
+    const nuevoServicio = await Servicio.create({
+      usuarioid,
       nombre,
       tipo,
       proveedor,
       numero_servicio,
       monto_mensual,
       fecha_vencimiento,
-      usuario_id
+      activo: true
     });
 
     res.status(201).json({
       message: 'Servicio creado exitosamente',
-      servicio
+      servicio: nuevoServicio
     });
   } catch (error) {
     console.error('Error al crear servicio:', error);
-    res.status(500).json({ error: 'Error interno del servidor' });
+    res.status(500).json({ 
+      error: 'Error interno del servidor',
+      details: error.message
+    });
   }
 };
 
 // Obtener servicios del usuario
 export const ObtenerServicios = async (req, res) => {
   try {
-    const usuario_id = req.user.id;
+    const usuarioid = req.user.id;
 
     const servicios = await Servicio.findAll({
-      where: { usuario_id, activo: true },
+      where: { usuarioid, activo: true },
       order: [['fecha_vencimiento', 'ASC']]
     });
 
@@ -71,10 +88,10 @@ export const CambiarServicioCelular = async (req, res) => {
   try {
     const { servicio_id } = req.params;
     const { nuevo_proveedor, nuevo_numero } = req.body;
-    const usuario_id = req.user.id;
+    const usuarioid = req.user.id;
 
     const servicio = await Servicio.findOne({
-      where: { id: servicio_id, usuario_id, tipo: 'celular' }
+      where: { id: servicio_id, usuarioid, tipo: 'celular' }
     });
 
     if (!servicio) {
@@ -99,11 +116,11 @@ export const CambiarServicioCelular = async (req, res) => {
 // Limpiar servicios celulares
 export const LimpiarServiciosCelulares = async (req, res) => {
   try {
-    const usuario_id = req.user.id;
+    const usuarioid = req.user.id;
 
     await Servicio.update(
       { activo: false },
-      { where: { usuario_id, tipo: 'celular' } }
+      { where: { usuarioid, tipo: 'celular' } }
     );
 
     res.json({
@@ -119,19 +136,19 @@ export const LimpiarServiciosCelulares = async (req, res) => {
 export const PagarServicio = async (req, res) => {
   try {
     const { servicio_id } = req.params;
-    const usuario_id = req.user.id;
+    const usuarioid = req.user.id;
 
     const servicio = await Servicio.findOne({
-      where: { id: servicio_id, usuario_id, activo: true }
+      where: { id: servicio_id, usuarioid, activo: true }
     });
 
     if (!servicio) {
       return res.status(404).json({ error: 'Servicio no encontrado' });
     }
 
-    const usuario = await Usuario.findByPk(usuario_id);
+    const usuario = await Usuario.findByPk(usuarioid);
 
-    if (usuario.saldo < servicio.monto_mensual) {
+    if (parseFloat(usuario.saldo) < parseFloat(servicio.monto_mensual)) {
       return res.status(400).json({ error: 'Saldo insuficiente' });
     }
 
@@ -151,7 +168,7 @@ export const PagarServicio = async (req, res) => {
       descripcion: `Pago de ${servicio.tipo} - ${servicio.proveedor}`,
       categoria: servicio.tipo,
       referencia: servicio.numero_servicio,
-      usuario_origen_id: usuario_id,
+      usuario_origen_id: usuarioid,
       saldo_anterior_origen: usuario.saldo,
       saldo_posterior_origen: parseFloat(usuario.saldo) - parseFloat(servicio.monto_mensual)
     });
@@ -169,20 +186,20 @@ export const PagarServicio = async (req, res) => {
 // Pagar todos los servicios
 export const PagarTodosLosServicios = async (req, res) => {
   try {
-    const usuario_id = req.user.id;
+    const usuarioid = req.user.id;
 
     const servicios = await Servicio.findAll({
-      where: { usuario_id, activo: true, estado: 'pendiente' }
+      where: { usuarioid, activo: true, estado: 'pendiente' }
     });
 
     if (servicios.length === 0) {
       return res.status(400).json({ error: 'No hay servicios pendientes para pagar' });
     }
 
-    const usuario = await Usuario.findByPk(usuario_id);
+    const usuario = await Usuario.findByPk(usuarioid);
     const total = servicios.reduce((sum, servicio) => sum + parseFloat(servicio.monto_mensual), 0);
 
-    if (usuario.saldo < total) {
+    if (parseFloat(usuario.saldo) < total) {
       return res.status(400).json({ error: 'Saldo insuficiente para pagar todos los servicios' });
     }
 
@@ -203,7 +220,7 @@ export const PagarTodosLosServicios = async (req, res) => {
         descripcion: `Pago de ${servicio.tipo} - ${servicio.proveedor}`,
         categoria: servicio.tipo,
         referencia: servicio.numero_servicio,
-        usuario_origen_id: usuario_id,
+        usuario_origen_id: usuarioid,
         saldo_anterior_origen: usuario.saldo,
         saldo_posterior_origen: parseFloat(usuario.saldo) - total
       });
@@ -225,10 +242,10 @@ export const PagarTodosLosServicios = async (req, res) => {
 export const EliminarServicio = async (req, res) => {
   try {
     const { servicio_id } = req.params;
-    const usuario_id = req.user.id;
+    const usuarioid = req.user.id;
 
     const servicio = await Servicio.findOne({
-      where: { id: servicio_id, usuario_id }
+      where: { id: servicio_id, usuarioid }
     });
 
     if (!servicio) {

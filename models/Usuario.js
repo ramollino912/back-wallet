@@ -4,13 +4,14 @@ import bcrypt from 'bcryptjs';
 
 // Funciones para generar CVU y alias únicos
 const generateCVU = () => {
-  return '00000031000' + Math.random().toString().slice(2, 22);
+  // CVU de 22 dígitos: 11 del prefijo + 11 aleatorios
+  return '00000031000' + Math.random().toString().slice(2, 13);
 };
 
 const generateAlias = () => {
   const palabras = ['wallet', 'dinero', 'pago', 'transfer', 'cash', 'money', 'bank'];
   const palabra = palabras[Math.floor(Math.random() * palabras.length)];
-  const numero = Math.floor(Math.random() * 999) + 1;
+  const numero = Math.floor(Math.random() * 9999) + 1;
   return `${palabra}.${numero}`;
 };
 
@@ -47,12 +48,12 @@ const Usuario = sequelize.define('Usuario', {
   cvu: {
     type: DataTypes.STRING,
     unique: true,
-    allowNull: false
+    allowNull: true
   },
   alias: {
     type: DataTypes.STRING,
     unique: true,
-    allowNull: false
+    allowNull: true
   },
   tipo_usuario: {
     type: DataTypes.ENUM('admin', 'usuario'),
@@ -74,13 +75,27 @@ const Usuario = sequelize.define('Usuario', {
   tableName: 'usuarios',
   timestamps: true,
   hooks: {
+    beforeValidate: async (usuario) => {
+      // Generar CVU y alias antes de la validación
+      if (!usuario.cvu) {
+        usuario.cvu = generateCVU();
+      }
+      if (!usuario.alias) {
+        usuario.alias = generateAlias();
+      }
+    },
     beforeCreate: async (usuario) => {
+      // Hashear contraseña
       if (usuario.password) {
         usuario.password = await bcrypt.hash(usuario.password, 10);
       }
-      // Siempre generar CVU y alias
-      usuario.cvu = generateCVU();
-      usuario.alias = generateAlias();
+      // Asegurar CVU y alias si no existen
+      if (!usuario.cvu) {
+        usuario.cvu = generateCVU();
+      }
+      if (!usuario.alias) {
+        usuario.alias = generateAlias();
+      }
     },
     beforeUpdate: async (usuario) => {
       if (usuario.changed('password')) {

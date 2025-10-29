@@ -34,7 +34,7 @@ const app = express();
 // Determinar puerto de la aplicación. Evitar usar el mismo puerto que la BD si fue exportado en PORT.
 const rawPort = process.env.APP_PORT || process.env.PORT;
 // Si no se pasa APP_PORT preferimos dejar que el SO asigne un puerto libre (0) para evitar EADDRINUSE
-let PORT = process.env.APP_PORT || 0;
+let PORT = process.env.APP_PORT || 3000;
 if (rawPort && process.env.APP_PORT) {
   PORT = rawPort;
 }
@@ -109,7 +109,7 @@ app.post("/servicios", verifyToken, CrearServicio);
 app.put("/servicios/celular/cambiar", verifyToken, CambiarServicioCelular);
 app.post("/servicios/celular/limpiar", verifyToken, LimpiarServiciosCelulares);
 app.get("/servicios", verifyToken, ObtenerServicios);
-app.post("/servicios/pagar", verifyToken, PagarServicio);
+app.post("/servicios/:servicio_id/pagar", verifyToken, PagarServicio);
 app.post("/servicios/pagar-todos", verifyToken, PagarTodosLosServicios);
 app.delete("/servicios/:servicio_id", verifyToken, EliminarServicio);
 

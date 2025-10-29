@@ -39,16 +39,16 @@ export const syncDatabase = async () => {
     try {
       await sequelize.authenticate();
       console.log('✅ Conexión a la base de datos establecida correctamente.');
-  // Evitar alteraciones automáticas que pueden fallar en presencia de vistas o reglas en la BD
-  await sequelize.sync();
-      console.log('✅ Modelos sincronizados correctamente.');
+      // No usar sync() ya que las tablas son manejadas por migraciones
+      // await sequelize.sync();
+      console.log('✅ Conexión establecida. Tablas manejadas por migraciones.');
       return;
     } catch (error) {
       retries--;
-      console.error(`❌ Error al sincronizar la base de datos (intentos restantes: ${retries}):`, error.message);
+      console.error(`❌ Error al conectar a la base de datos (intentos restantes: ${retries}):`, error.message);
 
       if (retries === 0) {
-        console.error('❌ Error final al sincronizar la base de datos:', error);
+        console.error('❌ Error final al conectar a la base de datos:', error);
         if (process.env.NODE_ENV === 'production') {
           console.error('⚠️ Error en producción, continuando sin base de datos');
           return;

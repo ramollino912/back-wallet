@@ -8,18 +8,14 @@ export const verifyToken = async (req, res, next) => {
 
     const Paso2 = Paso1.split(' ')[1];
     if (!Paso2 || Paso1.split(' ')[0] !== 'Bearer') {
-        return res.status(401).json({ error: 'Token inválido1' });
+        return res.status(401).json({ error: 'Token inválido' });
     }
 
     try {
-        const verifiedToken = jwt.verify(Paso2, "tu_secreto"/*process.env.SECRET_KEY*/);
-        req.id  = verifiedToken.id;
+        const verifiedToken = jwt.verify(Paso2, process.env.SECRET || process.env.JWT_SECRET || "tu_secreto");
+        req.user = { id: verifiedToken.id };
     } catch (error) {
-        return res.status(401).json({ error11: 'Token inválido2', error });
-    }
-
-    if (!req.params.id) {
-        return res.status(401).json({ error: 'Token inválido3' });
+        return res.status(401).json({ error: 'Token inválido o expirado' });
     }
 
     next();

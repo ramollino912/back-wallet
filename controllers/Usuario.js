@@ -7,7 +7,7 @@ import Servicio from '../models/Servicio.js';
 import TarjetaTransporte from '../models/TarjetaTransporte.js';
 import { Op, fn, literal } from 'sequelize';
 
-import pool from '../dbconfig.js';
+// import pool from '../dbconfig.js'; // Ya no se usa - migrado a Sequelize
 import bcrypt from 'bcryptjs';
 
 /*const Logearse = async(req ,res)=> {
@@ -128,26 +128,62 @@ export const Profile = async (req, res) => {
 
 export const Logearse = async (req, res) => {
   try {
-    if (!req.body.mail || !req.body.contrasena) {
-      return res.status(400).json({ message: 'Correo electrónico y contraseña son requeridos.' });
+    const { email, password } = req.body;
+
+    if (!email || !password) {
+      return res.status(400).json({ 
+        success: false,
+        message: 'Email y contraseña son requeridos' 
+      });
     }
 
-    const UsuarioQuery = await pool.query('SELECT id, mail, contrasena FROM perfil WHERE mail = $1', [req.body.mail]);
+    // Buscar usuario por email usando Sequelize
+    const usuario = await UsuarioModel.findOne({ where: { email } });
 
-    if (UsuarioQuery.rows.length === 1) {
-      const passwordMatch = await bcrypt.compare(req.body.contrasena, UsuarioQuery.rows[0].contrasena);
+    if (!usuario) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'El email no está registrado' 
+      });
+    }
 
-      if (passwordMatch) {
-        const token = jwt.sign({ id: UsuarioQuery.rows[0].id }, process.env.SECRET || 'tu_secreto', { expiresIn: '1d' });
-        return res.status(200).json({ message: 'Se logeó correctamente.', token });
+    // Verificar contraseña
+    const passwordMatch = await usuario.comparePassword(password);
+
+    if (!passwordMatch) {
+      return res.status(401).json({ 
+        success: false, 
+        message: 'Contraseña incorrecta' 
+      });
+    }
+
+    // Generar token JWT
+    const token = jwt.sign(
+      { id: usuario.id }, 
+      process.env.SECRET || process.env.JWT_SECRET || 'tu_secreto', 
+      { expiresIn: '1d' }
+    );
+
+    return res.status(200).json({ 
+      success: true,
+      message: 'Login exitoso', 
+      token,
+      usuario: {
+        id: usuario.id,
+        nombre: usuario.nombre,
+        apellido: usuario.apellido,
+        email: usuario.email,
+        saldo: usuario.saldo,
+        cvu: usuario.cvu,
+        alias: usuario.alias
       }
-      return res.status(401).json({ success: false, message: 'La contraseña o el correo electrónico son incorrectos.' });
-    }
-
-    return res.status(404).json({ success: false, message: 'El correo electrónico no está registrado.' });
-  } catch (e) {
-    console.log(e);
-    res.status(500).json({ message: 'Error durante el inicio de sesión.' });
+    });
+  } catch (error) {
+    console.error('Error en login:', error);
+    res.status(500).json({ 
+      success: false,
+      message: 'Error durante el inicio de sesión' 
+    });
   }
 };
 
@@ -167,53 +203,63 @@ export const ObtenerSaldo = async (req, res) => {
 };
 
 export const RecargarSaldo = async (req, res) => {
-  const { monto } = req.body;
-  const usuarioId = req.user.id;
-
-  if (!monto || monto <= 0) {
-    return res.status(400).json({ error: 'El monto debe ser mayor a 0' });
-  }
-
   try {
-    // Iniciar transacción
-    await pool.query('BEGIN');
+    const { monto } = req.body;
+    const usuarioId = req.user.id;
 
-    // Obtener saldo actual
-    const result = await pool.query(
-      'SELECT saldo FROM cuentas WHERE user_id = $1',
-      [usuarioId]
-    );
-
-    if (result.rows.length === 0) {
-      await pool.query('ROLLBACK');
-      return res.status(404).json({ error: 'Cuenta no encontrada' });
+    // Validar monto
+    if (!monto || monto <= 0) {
+      return res.status(400).json({ 
+        success: false,
+        error: 'El monto debe ser mayor a 0' 
+      });
     }
 
-    const saldoActual = parseFloat(result.rows[0].saldo);
-    const nuevoSaldo = saldoActual + parseFloat(monto);
+    // Buscar usuario
+    const usuario = await UsuarioModel.findByPk(usuarioId);
 
-    // Actualizar saldo
-    await pool.query(
-      'UPDATE cuentas SET saldo = $1 WHERE user_id = $2',
-      [nuevoSaldo, usuarioId]
-    );
+    if (!usuario) {
+      return res.status(404).json({ 
+        success: false,
+        error: 'Usuario no encontrado' 
+      });
+    }
+
+    const saldoAnterior = parseFloat(usuario.saldo);
+    const nuevoSaldo = saldoAnterior + parseFloat(monto);
+
+    // Actualizar saldo del usuario
+    await usuario.update({ saldo: nuevoSaldo });
 
     // Registrar transacción
-    await pool.query(
-      'INSERT INTO transacciones (usuario_origen_id, tipo, monto, descripcion) VALUES ($1, $2, $3, $4)',
-      [usuarioId, 'recarga_saldo', monto, 'Recarga de saldo']
-    );
-
-    await pool.query('COMMIT');
+    await Transaccion.create({
+      monto: parseFloat(monto),
+      tipo: 'recarga_saldo',
+      estado: 'completada',
+      descripcion: 'Recarga de saldo',
+      categoria: 'recarga',
+      usuario_origen_id: usuarioId,
+      saldo_anterior_origen: saldoAnterior,
+      saldo_posterior_origen: nuevoSaldo
+    });
 
     res.json({
+      success: true,
       message: 'Saldo recargado exitosamente',
-      nuevoSaldo
+      saldoAnterior: saldoAnterior,
+      montoRecargado: parseFloat(monto),
+      nuevoSaldo: nuevoSaldo
     });
   } catch (error) {
-    await pool.query('ROLLBACK');
     console.error('Error al recargar saldo:', error);
-    res.status(500).json({ error: 'Error al procesar la recarga' });
+    console.error('Error name:', error.name);
+    console.error('Error message:', error.message);
+    res.status(500).json({ 
+      success: false,
+      error: 'Error al procesar la recarga',
+      errorMessage: error.message,
+      errorName: error.name
+    });
   }
 };export const ObtenerTransacciones = async (req, res) => {
   try {
