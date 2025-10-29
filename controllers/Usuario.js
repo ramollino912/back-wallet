@@ -113,16 +113,29 @@ export const LoginGoogle = async (req, res) => {
 
 export const Profile = async (req, res) => {
   try {
-    const query = 'SELECT id, nombre, apellido, mail, direccion, dni FROM perfil WHERE id = $1';
-    const result = await pool.query(query, [req.params.id]);
-    if (result.rows.length > 0) {
-      return res.status(200).json({ data: result.rows[0] });
-    } else {
-      return res.status(404).json({ success: false, message: 'Usuario no encontrado' });
+    // El ID viene del token JWT verificado por el middleware
+    const usuario = await UsuarioModel.findByPk(req.user.id, {
+      attributes: ['id', 'nombre', 'apellido', 'email', 'saldo', 'created_at', 'updated_at']
+    });
+    
+    if (!usuario) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'Usuario no encontrado' 
+      });
     }
+    
+    return res.status(200).json({ 
+      success: true,
+      data: usuario 
+    });
   } catch (error) {
-    console.error(error);
-    return res.status(500).json({ success: false, message: 'Error al obtener el perfil del usuario' });
+    console.error('Error en Profile:', error);
+    return res.status(500).json({ 
+      success: false, 
+      message: 'Error al obtener el perfil del usuario',
+      error: error.message 
+    });
   }
 };
 
@@ -278,12 +291,13 @@ export const RecargarSaldo = async (req, res) => {
         { model: UsuarioModel, as: 'usuario_origen', attributes: ['nombre', 'apellido', 'email'] },
         { model: UsuarioModel, as: 'usuario_destino', attributes: ['nombre', 'apellido', 'email'] }
       ],
-      order: [['createdAt', 'DESC']],
+      order: [['id', 'DESC']], // Cambiado de createdAt a id
       limit: parseInt(limit),
       offset: parseInt(offset)
     });
 
-    res.json({
+    res.status(200).json({
+      success: true,
       transacciones: transacciones.rows,
       total: transacciones.count,
       totalPages: Math.ceil(transacciones.count / limit),
@@ -291,7 +305,11 @@ export const RecargarSaldo = async (req, res) => {
     });
   } catch (error) {
     console.error('Error al obtener transacciones:', error);
-    res.status(500).json({ error: 'Error interno del servidor' });
+    res.status(500).json({ 
+      success: false,
+      error: 'Error interno del servidor',
+      message: error.message 
+    });
   }
 };
 

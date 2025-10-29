@@ -27,6 +27,7 @@ const { Logearse, LoginGoogle, Profile, RecargarSaldo, ObtenerSaldo, ObtenerTran
 import TransferenciaController from './controllers/Transferencia.js';
 const { TransferirDinero, BuscarUsuario, ObtenerActividades } = TransferenciaController || {};
 import { RegistrarTarjeta, ObtenerTarjetas, RecargarTarjeta, EliminarTarjeta, ObtenerSaldoTarjeta, ObtenerEstadisticasTransporte, ReactivarTarjeta, ObtenerTarjetasDesactivadas, ObtenerEmpresasTransporte } from './controllers/Transporte.js';
+import walletController from './controllers/wallet.js';
 
 dotenv.config();
 
@@ -129,6 +130,9 @@ app.post("/categorias", verifyToken, requireAdmin, CrearCategoria);
 app.get("/categorias", verifyToken, ObtenerCategorias);
 app.put("/categorias/:categoria_id", verifyToken, requireAdmin, ActualizarCategoria);
 app.delete("/categorias/:categoria_id", verifyToken, requireAdmin, EliminarCategoria);
+
+// Ruta de wallet
+app.get("/wallet/estado", verifyToken, walletController.obtenerEstado);
 
 // Middleware de manejo de errores
 app.use((error, req, res, next) => {

@@ -80,8 +80,93 @@ const getTransacciones = (req, res) => {
 */
 
 //module.exports = { getSaldo, transferirDinero, getTransacciones };
-const walletController = {
+import UsuarioModel from '../models/Usuario.js';
+import Transaccion from '../models/Transaccion.js';
+import Servicio from '../models/Servicio.js';
+import TarjetaTransporte from '../models/TarjetaTransporte.js';
+import { Op, fn, col } from 'sequelize';
 
+const walletController = {
+  // Obtener estado general del wallet del usuario
+  obtenerEstado: async (req, res) => {
+    try {
+      const usuarioId = req.user.id;
+
+      // Obtener datos del usuario
+      const usuario = await UsuarioModel.findByPk(usuarioId, {
+        attributes: ['id', 'nombre', 'apellido', 'email', 'saldo']
+      });
+
+      if (!usuario) {
+        return res.status(404).json({
+          success: false,
+          message: 'Usuario no encontrado'
+        });
+      }
+
+      // Contar transacciones
+      const totalTransacciones = await Transaccion.count({
+        where: {
+          [Op.or]: [
+            { usuario_origen_id: usuarioId },
+            { usuario_destino_id: usuarioId }
+          ]
+        }
+      });
+
+      // Contar servicios activos
+      const serviciosActivos = await Servicio.count({
+        where: { usuario_id: usuarioId, activo: true }
+      });
+
+      // Contar tarjetas de transporte activas
+      const tarjetasActivas = await TarjetaTransporte.count({
+        where: { usuario_id: usuarioId, activo: true }
+      });
+
+      // Calcular gastos del mes actual - Nota: transacciones no tiene created_at
+      // const inicioMes = new Date();
+      // inicioMes.setDate(1);
+      // inicioMes.setHours(0, 0, 0, 0);
+
+      // const gastosDelMes = await Transaccion.sum('monto', {
+      //   where: {
+      //     usuario_origen_id: usuarioId,
+      //     tipo: { [Op.in]: ['pago_servicio', 'recarga_transporte', 'transferencia'] },
+      //     created_at: { [Op.gte]: inicioMes }
+      //   }
+      // }) || 0;
+
+      // Por ahora devolvemos 0 hasta que agreguemos timestamps a transacciones
+      const gastosDelMes = 0;
+
+      return res.status(200).json({
+        success: true,
+        data: {
+          usuario: {
+            id: usuario.id,
+            nombre: usuario.nombre,
+            apellido: usuario.apellido,
+            email: usuario.email,
+            saldo: parseFloat(usuario.saldo || 0)
+          },
+          estadisticas: {
+            total_transacciones: totalTransacciones,
+            servicios_activos: serviciosActivos,
+            tarjetas_activas: tarjetasActivas,
+            gastos_mes_actual: parseFloat(gastosDelMes || 0)
+          }
+        }
+      });
+    } catch (error) {
+      console.error('Error al obtener estado del wallet:', error);
+      return res.status(500).json({
+        success: false,
+        message: 'Error al obtener el estado del wallet',
+        error: error.message
+      });
+    }
+  }
 };
 
 export default walletController; 
