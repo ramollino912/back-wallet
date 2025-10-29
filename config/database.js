@@ -1,36 +1,35 @@
 import { Sequelize } from 'sequelize';
+import pg from 'pg';
 import dotenv from 'dotenv';
 
 dotenv.config();
 
 // Configuración para Vercel usando wallet
-const sequelize = new Sequelize(
-  process.env.DB_NAME || 'wallet',
-  process.env.DB_USER || 'default',
-  process.env.DB_PASSWORD || '1U0hcQmxMuTz',
-  {
-    host: process.env.DB_HOST || 'ep-white-dust-a4ao0h56.us-east-1.aws.neon.tech',
-    port: process.env.DB_PORT || 5432,
-    dialect: 'postgres',
-    dialectOptions: {
-      ssl: {
-        require: true,
-        rejectUnauthorized: false
-      }
-    },
-    logging: false,
-    pool: {
-      max: 5,
-      min: 0,
-      acquire: 30000,
-      idle: 10000
-    },
-    define: {
-      timestamps: true,
-      underscored: true
+// Usar DATABASE_URL si está disponible (Vercel), sino construir desde variables individuales
+const databaseUrl = process.env.DATABASE_URL || 
+  `postgresql://${process.env.DB_USER || 'default'}:${process.env.DB_PASSWORD || '1U0hcQmxMuTz'}@${process.env.DB_HOST || 'ep-white-dust-a4ao0h56.us-east-1.aws.neon.tech'}:${process.env.DB_PORT || 5432}/${process.env.DB_NAME || 'wallet'}?sslmode=require`;
+
+const sequelize = new Sequelize(databaseUrl, {
+  dialect: 'postgres',
+  dialectModule: pg, // Forzar el uso del módulo pg importado
+  dialectOptions: {
+    ssl: {
+      require: true,
+      rejectUnauthorized: false
     }
+  },
+  logging: false,
+  pool: {
+    max: 5,
+    min: 0,
+    acquire: 30000,
+    idle: 10000
+  },
+  define: {
+    timestamps: true,
+    underscored: true
   }
-);
+});
 
 export const syncDatabase = async () => {
   let retries = 3;
